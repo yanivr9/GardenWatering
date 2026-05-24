@@ -46,19 +46,11 @@ def get_device_status():
     r = requests.get(BASE_URL + path, headers=headers)
     return r.json()
 
-def send_email_report(battery_level):
-    is_low = battery_level < 20
-    theme_color = "#d32f2f" if is_low else "#1f8b4c"
-    icon = "⚠️" if is_low else "✅"
-    status_title = "סטטוס סוללה: נמוך מאוד!" if is_low else "סטטוס סוללה: תקין"
-    subject = f"{icon} עדכון מערכת השקיה: סוללה ב-{battery_level}%"
+def send_alert_email(battery_level):
+    # הפונקציה הזו תופעל כעת רק כאשר הסוללה נמוכה!
+    theme_color = "#d32f2f" # צבע אדום חזק להתראה
+    subject = f"⚠️ התראת מערכת השקיה: סוללה ב-{battery_level}%"
     
-    message_text = (
-        "<strong>שימו לב!</strong> רמת הסוללה בברז הגינה נמוכה קריטית. מומלץ להחליף סוללות <u>בהקדם</u> כדי להבטיח רצף השקיה ותקינות הצמחים."
-        if is_low else
-        "הבדיקה היומית בוצעה בהצלחה. הברז פועל כשורה, רמת הסוללה טובה ואין צורך בנקיטת פעולה."
-    )
-
     html_content = f"""<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -82,9 +74,11 @@ def send_email_report(battery_level):
             <h2>🌿 בקרה: ברז השקיה חכם</h2>
         </div>
         <div class="content">
-            <div class="status-title">{status_title}</div>
+            <div class="status-title">סטטוס סוללה: נמוך מאוד!</div>
             <div class="battery-banner">{battery_level}%</div>
-            <div class="message">{message_text}</div>
+            <div class="message">
+                <strong>שימו לב!</strong> רמת הסוללה בברז הגינה נמוכה קריטית. מומלץ להחליף סוללות <u>בהקדם</u> כדי להבטיח רצף השקיה ותקינות הצמחים.
+            </div>
         </div>
         <div class="footer">
             <p>הסחלבים, הפטוניות והאמנון ותמר שלך בידיים טובות 🌿💧</p>
@@ -107,7 +101,7 @@ def send_email_report(battery_level):
         server.login(SENDER_EMAIL, EMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print("[EMAIL] הדיווח המעוצב נשלח למייל בהצלחה!")
+        print("[EMAIL] התראת סוללה נמוכה נשלחה למייל בהצלחה!")
     except Exception as e:
         print(f"[EMAIL] ❌ שגיאה בשליחת אימייל: {e}")
 
@@ -123,11 +117,13 @@ if __name__ == "__main__":
             
     if battery_level is not None:
         print(f"רמת סוללה נוכחית שחולצה: {battery_level}%")
-        print("שולח את הדיווח המעוצב למייל...")
-        send_email_report(battery_level)
+        
+        # הבדיקה החדשה: שולחים מייל רק אם ירד מ-20 אחוז
+        if battery_level < 20:
+            print("⚠️ סוללה מתחת ל-20%! שולח התראה למייל...")
+            send_alert_email(battery_level)
+        else:
+            print("✅ הסוללה תקינה (20% ומעלה). אין צורך לשלוח התראה. נתראה מחר!")
+            
     else:
         print("❌ לא נמצאו נתוני סוללה בתשובת השרת.")
-
-# =========================
-# סוף הקובץ - ודא שהעתקת עד לכאן!
-# =========================
