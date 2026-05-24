@@ -8,13 +8,17 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# =========================
 # סודות Tuya
+# =========================
 ACCESS_ID = os.getenv("TUYA_ACCESS_ID")
 ACCESS_KEY = os.getenv("TUYA_ACCESS_KEY")
 DEVICE_ID = os.getenv("TUYA_DEVICE_ID")
 BASE_URL = "https://openapi.tuyaeu.com"
 
+# =========================
 # סודות Email
+# =========================
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD") 
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
@@ -43,28 +47,127 @@ def get_device_status():
     return r.json()
 
 def send_email_report(battery_level):
-    # הגדרת נושא ותוכן המייל בהתאם לרמת הסוללה
-    if battery_level < 20:
-        subject = f"⚠️ התראת מערכת השקיה: סוללה נמוכה בברז! ({battery_level}%)"
-        body = f"רמת הסוללה בברז הגינה ירדה ל-{battery_level}%.\nנא להחליף סוללות בהקדם כדי שההשקיה לא תיעצר."
-    else:
-        subject = f"✅ עדכון מערכת השקיה יומית: סוללה תקינה ({battery_level}%)"
-        body = f"הבדיקה היומית בוצעה בהצלחה.\nרמת הסוללה בברז הגינה היא כעת {battery_level}% והכל תקין."
+    # הגדרת משתנים דינמיים לפי מצב הסוללה
+    is_low = battery_level < 20
+    theme_color = "#e74c3c" if is_low else "#2ecc71"
+    icon = "⚠️" if is_low else "✅"
+    status_title = "סוללה נמוכה!" if is_low else "הסוללה תקינה"
+    subject = f"{icon} עדכון מערכת השקיה: סוללה ב-{battery_level}%"
     
-    msg = MIMEMultipart()
+    message_text = (
+        "שימו לב! רמת הסוללה בברז הגינה נמוכה. מומלץ להחליף סוללות בהקדם כדי להבטיח רצף השקיה."
+        if is_low else
+        "הבדיקה היומית בוצעה בהצלחה. הברז פועל כשורה ומוכן לפעולה."
+    )
+
+    # עיצוב ה-HTML של המייל
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f4f7f6;
+                margin: 0;
+                padding: 40px 20px;
+            }}
+            .email-container {{
+                max-width: 500px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                background-color: {theme_color};
+                color: #ffffff;
+                padding: 25px;
+                text-align: center;
+            }}
+            .header h2 {{
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+            }}
+            .content {{
+                padding: 40px 30px;
+                text-align: center;
+                color: #333333;
+            }}
+            .battery-display {{
+                font-size: 56px;
+                font-weight: bold;
+                color: {theme_color};
+                margin: 10px 0;
+                line-height: 1;
+            }}
+            .status-title {{
+                font-size: 20px;
+                margin-top: 0;
+                margin-bottom: 15px;
+                color: #555555;
+            }}
+            .message {{
+                font-size: 16px;
+                line-height: 1.6;
+                color: #666666;
+            }}
+            .footer {{
+                background-color: #f9f9fa;
+                padding: 20px;
+                text-align: center;
+                border-top: 1px solid #eeeeee;
+                font-size: 14px;
+                color: #888888;
+            }}
+            .footer p {{
+                margin: 5px 0;
+            }}
+            .small-text {{
+                font-size: 12px;
+                color: #aaaaaa;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <div class="header">
+                <h2>מערכת השקיה חכמה</h2>
+            </div>
+            <div class="content">
+                <div class="status-title">{status_title}</div>
+                <div class="battery-display">{battery_level}%</div>
+                <div class="message">
+                    {message_text}
+                </div>
+            </div>
+            <div class="footer">
+                <p>הסחלבים, הפטוניות והאמנון ותמר שלך בידיים טובות 🌿💧</p>
+                <p class="small-text">נשלח אוטומטית באמצעות GitHub Actions</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    msg = MIMEMultipart('alternative')
     msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
     msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+    
+    # חיבור גרסת ה-HTML למייל
+    msg.attach(MIMEText(html_content, 'html', 'utf-8'))
     
     try:
-        # התחברות לשרת ה-SMTP של Gmail
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(SENDER_EMAIL, EMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print("[EMAIL] הדיווח היומי נשלח למייל בהצלחה!")
+        print("[EMAIL] הדיווח המעוצב נשלח למייל בהצלחה!")
     except Exception as e:
         print(f"[EMAIL] ❌ שגיאה בשליחת אימייל: {e}")
 
@@ -80,7 +183,7 @@ if __name__ == "__main__":
             
     if battery_level is not None:
         print(f"רמת סוללה נוכחית שחולצה: {battery_level}%")
-        print("שולח את הדיווח למייל...")
+        print("שולח את הדיווח המעוצב למייל...")
         send_email_report(battery_level)
     else:
         print("❌ לא נמצאו נתוני סוללה בתשובת השרת.")
